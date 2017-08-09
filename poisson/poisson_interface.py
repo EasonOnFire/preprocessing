@@ -62,8 +62,6 @@ def poisson_blend(img_target, img_source, img_mask, offset=(0, 0)):
 	else:
 		img_mask = img_source[region_source[0]:region_source[2], region_source[1]:region_source[3]] > 10	
 	img_mask = img_mask.astype(np.uint8)
-	print(img_mask)
-	PIL.Image.fromarray(np.uint8(img_mask*255)).save("poissonblending-demo/testimages/mask.jpg")
 	"""
 	img_mask = img_mask[region_source[0]:region_source[2], region_source[1]:region_source[3]]
 	if len(img_mask.shape) > 2:
@@ -113,10 +111,6 @@ def random_blend_by_path(path_target, path_source, path_output):
     img_source.flags.writeable = True
     img_target = np.asarray(PIL.Image.open(path_target))
     img_target.flags.writeable = True
-    
-	# test only
-    img_mask = np.asarray(PIL.Image.open("poissonblending-demo/testimages/mask.jpg"))
-    img_mask.flags.writeable = True
     print(len(img_source.shape), "channels")
     if len(img_source.shape) not in (2,3) or len(img_target.shape) not in (2,3):
         return "[err] img broken!..."
@@ -137,9 +131,9 @@ def random_blend_by_path(path_target, path_source, path_output):
 
 if __name__ == '__main__':
     print("This is an interface.")
-    path_target = "poissonblending-demo/testimages/1.tif"
-    path_source = "poissonblending-demo/testimages/2.tif"
-    path_output = "poissonblending-demo/testimages/3.tif"
+    path_target = "tar.jpg"
+    path_source = "src.jpg"
+    path_output = "blend.jpg"
     ret = random_blend_by_path(path_target, path_source, path_output)
     if ret is not None:
         print(ret)
