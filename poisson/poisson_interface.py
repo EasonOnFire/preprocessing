@@ -10,10 +10,13 @@ from random import randint
 
 def poisson_blend_core(t, s, A, P, region_size, img_target, img_mask):
 	# get subimages
+    #print(s.shape)	
     t = t.flatten()
     s = s.flatten()
 
     # create b
+    #print(P.shape)
+    #print(s.shape)
     b = P * s
     for y in range(region_size[0]):
         for x in range(region_size[1]):
@@ -26,15 +29,15 @@ def poisson_blend_core(t, s, A, P, region_size, img_target, img_mask):
 
     # assign x to target image
     x = np.reshape(x, region_size)
-	# 
+	 
     x[img_mask != 0] /= (np.max(x)/255.0)
-    #x[x>256] = 255
-    x[x<0] = 0
+    x[x>255] = 255
+    #x[x<0] = 0
     x = np.array(x, img_target.dtype)
     return x
 
 # blend source with target, left top position offset(x, y)
-def poisson_blend(img_target, img_source, img_mask, offset=(0, 0)):
+def poisson_blend(img_target, img_source, offset=(0, 0)):
     # compute regions to be blended
 	offx = offset[0]
 	offy = offset[1]
@@ -55,7 +58,6 @@ def poisson_blend(img_target, img_source, img_mask, offset=(0, 0)):
 	#print('region_size', region_size)
 	
     # clip and normalize mask image
-
 	img_mask = None
 	if len(img_source.shape) == 3:
 		img_mask = img_source[region_source[0]:region_source[2], region_source[1]:region_source[3], 0] > 10
@@ -102,16 +104,17 @@ def poisson_blend(img_target, img_source, img_mask, offset=(0, 0)):
 		# get subimages
 		t = img_target[region_target[0]:region_target[2],region_target[1]:region_target[3]]
 		s = img_source[region_source[0]:region_source[2], region_source[1]:region_source[3]]
+		#print(s.shape)		
 		x = poisson_blend_core(t, s, A, P, region_size, img_target, img_mask)
 		img_target[region_target[0]:region_target[2],region_target[1]:region_target[3]] = x
 	return img_target
 
 def random_blend_by_path(path_target, path_source, path_output):
-    img_source = np.asarray(PIL.Image.open(path_source))
+    img_source = np.asarray(PIL.Image.open(path_source).convert("I"))
     img_source.flags.writeable = True
-    img_target = np.asarray(PIL.Image.open(path_target))
+    img_target = np.asarray(PIL.Image.open(path_target).convert("I"))
     img_target.flags.writeable = True
-    print(len(img_source.shape), "channels")
+    
     if len(img_source.shape) not in (2,3) or len(img_target.shape) not in (2,3):
         return "[err] img broken!..."
 	
@@ -124,16 +127,33 @@ def random_blend_by_path(path_target, path_source, path_output):
     offx = randint(0, xrange)
     offy = randint(0, yrange)
 	
-    img_ret = poisson_blend(img_target, img_source, img_mask, offset=(offx, offy))
+	# batch_normal_like operations
+    tar_area = img_target[offy:offy+img_source.shape[0], offx:offx+img_source.shape[1]].copy()
+    tar_mean = np.mean(tar_area[tar_area < 255])
+    tar_std = np.std(tar_area[tar_area < 255])
+    src_mean = np.mean(img_source[img_source > 0])
+    src_std = np.std(img_source[img_source > 0])
+	# binary mask
+    cancerMask = np.zeros(img_source.shape)
+    cancerMask[img_source>10] = 1
+    #print(src_mean-tar_mean)
+    img_source = img_source.astype(np.float64)
+    img_source -= (src_mean-tar_mean)
+    img_source /= (src_std/tar_std)
+    img_source[cancerMask==0] = 0
+    #print(cancerMask)
+    img_source = img_source.astype(np.int32)	
+	
+    img_ret = poisson_blend(img_target, img_source, offset=(offx, offy))
     img_ret = PIL.Image.fromarray(np.uint8(img_ret))
     img_ret.save(path_output)
     return None
 
 if __name__ == '__main__':
     print("This is an interface.")
-    path_target = "tar.jpg"
-    path_source = "src.jpg"
-    path_output = "blend.jpg"
+    path_target = "bg.tif"
+    path_source = "cancer.tif"
+    path_output = "blend.tif"
     ret = random_blend_by_path(path_target, path_source, path_output)
     if ret is not None:
         print(ret)
